@@ -1,0 +1,32 @@
+# Sırlar ve yerel yapılandırma: asla depoya girmemeli
+.env
+.env.*
+!.env.example
+config.json
+state.json
+*.pem
+*.key
+
+# Veritabanı ve kullanıcı verisi
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+
+# Bağımlılıklar ve derleme çıktıları
+node_modules/
+dist/
+build/
+.dart_tool/
+.gradle/
+__pycache__/
+*.pyc
+
+# Günlükler, geçici dosyalar, editör/işletim sistemi
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

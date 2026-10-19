@@ -1,0 +1,12 @@
+{
+  "server_url": "ws://192.168.1.10:3000/ws/gate",
+  "gate_id": "kapi-1",
+  "gate_key": "SUNUCUDA-OLUSTURULAN-KAPI-ANAHTARI",
+  "fullscreen": false,
+  "relay": {
+    "mode": "sim",
+    "pin": 17,
+    "active_high": false,
+    "open_seconds": 3
+  }
+}
