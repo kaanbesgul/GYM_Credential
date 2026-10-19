@@ -21,6 +21,16 @@ export function parseMoneyToCents(input: string): number | null {
   return Number.isFinite(value) && value >= 0 ? Math.round(value * 100) : null;
 }
 
+/** 480 -> "8 dk", 3900 -> "1 sa 5 dk", 45 -> "45 sn" */
+export function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds} sn`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} dk`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} sa` : `${hours} sa ${rest} dk`;
+}
+
 /** Denetim kaydı satırını okunur bir cümleye çevirir. */
 export function describeAudit(action: string, details: Record<string, unknown> | null): string {
   const d = details ?? {};
@@ -34,6 +44,10 @@ export function describeAudit(action: string, details: Record<string, unknown> |
     case 'plan.create': return `Paket oluşturdu: ${name}`;
     case 'plan.update': return `Paketi güncelledi: ${name}`;
     case 'gate.create': return `Kapı ekledi: ${name}`;
+    case 'gate.update': {
+      const policy = d.offlinePolicy === 'open' ? `kapı açık kalır (${String(d.offlineGraceSeconds)} sn sonra)` : 'kapalı kalır';
+      return `Kapı ayarını değiştirdi: ${name} (internet kesilirse ${policy})`;
+    }
     case 'gate.rotate_key': return `Kapı anahtarını yeniledi: ${name}`;
     case 'gate.delete': return `Kapıyı sildi: ${name}`;
     case 'gate.open': return `Kapıyı elle açtı: ${name}`;

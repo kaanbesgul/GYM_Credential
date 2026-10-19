@@ -74,10 +74,28 @@ export interface EntrySummary {
   byDay: { day: string; allowed: number; denied: number }[];
 }
 
+export type OfflinePolicy = 'open' | 'closed';
+
 export interface Gate {
   id: string;
   name: string;
   online: boolean;
+  /** İnternet kesilirse: open = bekleme süresi sonunda kapı serbest geçişe açılır, closed = kapalı kalır */
+  offlinePolicy: OfflinePolicy;
+  offlineGraceSeconds: number;
+}
+
+/** Kapının bildirdiği "internet yokken serbest geçiş" dönemi */
+export interface GateEvent {
+  id: number;
+  gateId: string;
+  gateName: string | null;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+  reportedAt: string;
+  /** Kapının saati makul görünmüyorsa true: zamanlar güvenilmez */
+  clockSuspect: boolean;
 }
 
 export type Role = 'owner' | 'staff';
@@ -103,4 +121,6 @@ export interface NewGate {
   id: string;
   name: string;
   key: string;
+  offlinePolicy: OfflinePolicy;
+  offlineGraceSeconds: number;
 }

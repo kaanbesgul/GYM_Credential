@@ -8,7 +8,13 @@ import gymAdminRoutes from './routes/gymAdmin.js';
 import scanRoutes from './routes/scan.js';
 
 export async function buildApp({ db, config, logger = false, staticDir = null }) {
-  const app = Fastify({ logger, trustProxy: config.trustProxy });
+  const app = Fastify({
+    logger,
+    trustProxy: config.trustProxy,
+    // Şemada additionalProperties:false olan uç noktalar tanımsız alanı sessizce silmesin, 400 dönsün
+    // (aksi halde {"name": "..."} gönderen istemci 200 alır ama hiçbir şey değişmez).
+    ajv: { customOptions: { removeAdditional: false } },
+  });
   const hub = new GateHub({ rotateMs: config.qrRotateMs, ttlMs: config.qrTtlMs });
 
   // Gövdesiz POST/PATCH/DELETE isteklerini (ör. elle kapı açma) JSON başlığı olsa bile kabul et

@@ -12,9 +12,9 @@ doğrular ve kapıya "aç" komutu gönderir. Salon sahipleri üyelerini, paketle
 
 | Klasör | Durum | Açıklama |
 |---|---|---|
-| `server/` | ✅ hazır, 63 test | Node.js API + WebSocket + SQLite, çoklu salon. Derlenmiş web panelini de sunar |
+| `server/` | ✅ hazır, 73 test | Node.js API + WebSocket + SQLite, çoklu salon. Derlenmiş web panelini de sunar |
 | `web/` | ✅ hazır | Salon sahibi paneli (React + Vite + TypeScript) |
-| `gate/` | ✅ hazır | Kapı uygulaması (Python, ekranlı/ekransız, röle simülasyonu + GPIO) |
+| `gate/` | ✅ hazır, 26 test | Kapı uygulaması (Python, ekranlı/ekransız, röle simülasyonu + GPIO, internet yokken serbest geçiş). Testler: `python -m unittest discover -s tests` |
 | `member_app/` | ✅ derleniyor, testli | Üye uygulaması (Flutter, Android/iOS). Gerçek telefonda henüz denenmedi |
 
 > **Windows notu:** Proje yolunda Türkçe karakter (`Masaüstü` gibi) olmamalı. Android derlemesi ve Dart analizi bu yüzden
@@ -98,6 +98,26 @@ pip install websockets qrcode
 - Açılışta otomatik başlatmak için `systemd` servisi veya masaüstü autostart kullanın.
 - Pi'ye mümkünse kablolu ağ bağlayın: internet kopunca kimse içeri giremez.
 
+### İnternet kesilince kapı ne yapar
+
+Salon sahibi bunu panelde kapı başına seçer (**Kapılar → Ayarlar**): sunucu ayarı kapıya iletir, kapı `state.json` içinde saklar
+ve internet yokken, hatta açılışta bile uygular.
+
+| Ayar | Davranış |
+|---|---|
+| **Kapı açık kalsın** (varsayılan) | Sunucuya `N` saniyeden uzun süre ulaşılamazsa röle **sürekli çekili** kalır, herkes geçebilir. Bağlantı gelince röle bırakılır. Kısa kopmalarda açılmasın diye `N` bekleme süresi vardır (varsayılan 30 sn). |
+| **Kapı kapalı kalsın** | Röle yalnızca sunucu onayıyla açılır; internet yoksa kimse giremez. |
+
+- **Reddedilen cihaz asla serbest kalmaz.** Anahtar yenilendi/iptal edildi ya da kapı silindiyse sunucu bağlantıyı bilerek keser
+  (`4003`/`4004`); bu durumda internet kesilse bile kapı kilitli kalır. Çalınan bir cihaz bu yolla kullanılamaz.
+- **Serbest geçişte kim girdi bilinemez.** Kapı, serbest kalan her dönemi (başlangıç, bitiş) saklar ve internet gelince sunucuya
+  bildirir; panelde **Kapılar** sayfasının altında listelenir. Rapor onaylanana dek dosyada tutulur, elektrik kesilse de kaybolmaz.
+  Pi'de pil olmadığı için saat sapabilir; makul görünmeyen zamanlar "Saat doğrulanamadı" işaretiyle gösterilir.
+- **Donanım uyarısı:** "açık kalsın" röleyi uzun süre çekili tutar. Elektrikli kilit/turnikenizin sürekli çalışmaya uygun olduğundan emin
+  olun. Elektrik kesintisinde de kapının açılmasını istiyorsanız bunu yazılım değil **kablolama** çözer: kilidi rölenin NC
+  (normalde kapalı) kontağına bağlayın. Yazılım yalnızca internet kesikken, Pi çalışırken devreye girer.
+- Pi yeniden başlarsa röle kapalı açılır; bekleme süresi dolmadan serbest geçiş başlamaz.
+
 ## Güvenlik notları
 
 - QR kodları sunucuda üretilir ve saklanır. Her biri 30 sn geçerli ve **tek kullanımlıktır**;
@@ -155,8 +175,9 @@ pip install websockets qrcode
 | `GET /api/gyms/:gymId/entries/export` | **sahip** | Aynı aralık ve filtreyi Excel'de açılan CSV olarak indirir (UTF-8 + BOM, `;` ayırıcı, en fazla `MAX_EXPORT_ROWS`). Her indirme denetim kaydına yazılır |
 | `GET /api/gyms/:gymId/entries/summary` | salon çalışanı | Aralığın özeti: geçen/reddedilen, farklı üye, gün gün döküm. `from` ve `to` zorunlu, `tzOffsetMinutes` günleri istemcinin saat dilimine göre gruplar |
 | `GET /api/gyms/:gymId/gates`, `POST .../:gateId/open` | salon çalışanı | Kapıları listeler, elle açar |
-| `POST /api/gyms/:gymId/gates`, `POST .../:gateId/rotate-key`, `DELETE .../:gateId` | **sahip** | Kapı ekle, anahtarı yenile, sil |
+| `POST /api/gyms/:gymId/gates`, `PATCH .../:gateId`, `POST .../:gateId/rotate-key`, `DELETE .../:gateId` | **sahip** | Kapı ekle, "internet kesilirse" ayarını değiştir (`offlinePolicy`: `open`/`closed`, `offlineGraceSeconds`), anahtarı yenile, sil |
+| `GET /api/gyms/:gymId/gates/events` | salon çalışanı | Kapıların bildirdiği çevrimdışı serbest geçiş dönemleri |
 | `POST/PATCH /api/gyms/:gymId/plans` | **sahip** | Paket oluştur / düzenle |
 | `GET/POST /api/gyms/:gymId/staff`, `PATCH/DELETE .../:userId` | **sahip** | Çalışanlar ve roller |
 | `GET /api/gyms/:gymId/audit` | **sahip** | Denetim kaydı |
-| `WS /ws/gate` | kapı cihazı | `hello` → `qr` / `open` / `deny` mesajları |
+| `WS /ws/gate` | kapı cihazı | Kapı → sunucu: `hello`, `offline_report`. Sunucu → kapı: `hello_ok` (+ "internet kesilirse" ayarı), `config`, `qr`, `open`, `deny`, `offline_report_ack` |
