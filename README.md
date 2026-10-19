@@ -1,185 +1,191 @@
-🇹🇷 Türkçe · 🇬🇧 [English](README.en.md)
+🇬🇧 English · 🇹🇷 [Türkçe](README.tr.md)
 
 # GYM Enter
 
-QR ile spor salonu girişi, birden çok salonun kullanabileceği bir hizmet (SaaS) olarak tasarlandı.
-Kapıdaki ekran dönen bir QR gösterir, üye telefon uygulamasıyla okutur, sunucu o salondaki üyeliği
-doğrular ve kapıya "aç" komutu gönderir. Salon sahipleri üyelerini, paketlerini ve kapılarını web panelinden yönetir.
+QR-code entry for gyms, designed as a multi-tenant service (SaaS) that many gyms can use.
+A screen at the door shows a rotating QR code, the member scans it with the phone app, the server
+checks the membership at that gym and sends an "open" command to the gate. Gym owners manage their
+members, plans and gates from a web panel.
 
 ```
-                          ┌─────────────── Web paneli (salon sahibi, tarayıcı) ───────────────┐
-                          │                                                                   │
- Üye uygulaması ──QR + oturum──▶  Sunucu (API + panel)  ──"aç"──▶  Kapı (Raspberry Pi) ──▶ Röle ──▶ Kapı/turnike
+                          ┌───────────── Web panel (gym owner, browser) ──────────────┐
+                          │                                                           │
+ Member app ──QR + session──▶  Server (API + panel)  ──"open"──▶  Gate (Raspberry Pi) ──▶ Relay ──▶ Door/turnstile
 ```
 
-| Klasör | Durum | Açıklama |
+| Folder | Status | Description |
 |---|---|---|
-| `server/` | ✅ hazır, 73 test | Node.js API + WebSocket + SQLite, çoklu salon. Derlenmiş web panelini de sunar |
-| `web/` | ✅ hazır | Salon sahibi paneli (React + Vite + TypeScript) |
-| `gate/` | ✅ hazır, 26 test | Kapı uygulaması (Python, ekranlı/ekransız, röle simülasyonu + GPIO, internet yokken serbest geçiş). Testler: `python -m unittest discover -s tests` |
-| `member_app/` | ✅ derleniyor, testli | Üye uygulaması (Flutter, Android/iOS). Gerçek telefonda henüz denenmedi |
+| `server/` | ✅ ready, 73 tests | Node.js API + WebSocket + SQLite, multi-gym. Also serves the built web panel |
+| `web/` | ✅ ready | Gym owner panel (React + Vite + TypeScript) |
+| `gate/` | ✅ ready, 26 tests | Gate app (Python, with or without a screen, relay simulation + GPIO, free passage when the internet is down). Tests: `python -m unittest discover -s tests` |
+| `member_app/` | ✅ builds, tested | Member app (Flutter, Android/iOS). Not yet tried on a real phone |
 
-> **Windows notu:** Proje yolunda Türkçe karakter (`Masaüstü` gibi) olmamalı. Android derlemesi ve Dart analizi bu yüzden
-> çalışmaz. Bu kopyayı `C:\dev\GYM_Enter` gibi sade bir yolda tutun.
+> **Language:** the web panel, the member app, the gate screen and the server messages are currently **Turkish only**.
+> Where this README names a screen or button, the Turkish label is given in parentheses.
 
-## Veri modeli (kısaca)
+> **Windows note:** the project path must not contain non-ASCII characters (such as `Masaüstü`). Android builds and
+> Dart analysis fail otherwise. Keep this copy in a plain path such as `C:\dev\GYM_Enter`.
 
-- **`users`**: küresel hesaplar. Aynı kişi (aynı e-posta) birden çok salona üye olabilir, tek şifre, tek uygulama.
-- **`gyms`**, **`gym_staff`**: salonlar ve onları web panelinden yönetenler (`owner` / `staff`).
-- **`gym_members`**: kişi ↔ salon ilişkisi (salon bazında devre dışı bırakılabilir).
-- **`plans`**, **`memberships`**: paketler ve üyelikler salona aittir. Aynı kişinin iki salonda ayrı üyeliği olur.
-- **`gates`**, **`entries`**: kapılar ve giriş kayıtları salona aittir. QR hangi kapıdansa o salonun kuralları uygulanır.
+## Data model (in short)
 
-## Çalıştırma (geliştirme)
+- **`users`**: global accounts. The same person (same e-mail) can be a member of several gyms: one password, one app.
+- **`gyms`**, **`gym_staff`**: gyms and the people who manage them from the web panel (`owner` / `staff`).
+- **`gym_members`**: person ↔ gym relationship (can be disabled per gym).
+- **`plans`**, **`memberships`**: plans and memberships belong to a gym. The same person can hold separate memberships at two gyms.
+- **`gates`**, **`entries`**: gates and entry records belong to a gym. The rules of the gym that owns the scanned gate apply.
 
-**1. Sunucu ve web paneli** (Node.js 22.5+)
+## Running (development)
+
+**1. Server and web panel** (Node.js 22.5+)
 
 ```bash
 cd web
 npm install
-npm run build          # web/dist üretir; sunucu bunu otomatik sunar
+npm run build          # produces web/dist; the server serves it automatically
 
 cd ../server
 npm install
-npm run setup          # .env (rastgele sırlar; örnek: .env.example), veritabanı, örnek salon sahibi, salon ve ilk kapı
+npm run setup          # .env (random secrets; example: .env.example), database, sample gym owner, gym and first gate
 npm start              # http://localhost:3000 → panel
-npm test               # entegrasyon testleri
+npm test               # integration tests
 ```
 
-Panele `http://localhost:3000` adresinden girilir. İlk deneme için "Salonunu kaydet" ile kendi salonunuzu oluşturabilir ya da
-`server/.env` içindeki örnek salon sahibi hesabını kullanabilirsiniz.
+Open the panel at `http://localhost:3000`. To try it out, create your own gym with "Salonunu kaydet" ("Register your gym"),
+or use the sample gym-owner account from `server/.env`.
 
-Panelde arayüzü geliştirirken (`web/` klasöründe `npm run dev`) Vite 5173 portunda çalışır ve API'yi 3000'e yönlendirir.
+While working on the UI (`npm run dev` in `web/`), Vite runs on port 5173 and proxies the API to 3000.
 
-**2. Kapı uygulaması** (Python 3.10+)
+**2. Gate app** (Python 3.10+)
 
 ```bash
 cd gate
 pip install -r requirements.txt
-python gate.py                       # ekranlı
-python gate.py --headless            # ekransız (QR kodları konsola yazılır)
+python gate.py                       # with a screen
+python gate.py --headless            # without a screen (QR codes are printed to the console)
 ```
 
-Gerçek bir salonun kapısı için panelde **Kapılar → Kapı ekle** der, çıkan ayarı (kapı kimliği + anahtar)
-`gate/config.json` içine yapıştırırsınız. Anahtar yalnızca o anda gösterilir. Yerel denemede `npm run setup`'ın
-ürettiği kapı anahtarı `server/.env` içindedir.
-Varsayılan röle modu `sim`: kapı açılınca yalnızca log yazar.
+For a real gym's gate, go to **Gates → Add gate** (**Kapılar → Kapı ekle**) in the panel and paste the generated settings
+(gate id + key) into `gate/config.json`. The key is shown only once. For local trials, the gate key generated by
+`npm run setup` is in `server/.env`.
+The default relay mode is `sim`: when the gate opens, it only writes a log line.
 
-> `gate/config.example.json` ve `server/.env.example` **örnek (DUMMY) dosyalardır**: içlerindeki değerler sahtedir ve
-> herkes görebilir. Gerçek `config.json` ve `.env` dosyaları git'e eklenmez (`.gitignore`). Örnek değerlerle sunucu,
-> kurulum betiği ve kapı uygulaması bilerek çalışmayı reddeder.
+> `gate/config.example.json` and `server/.env.example` are **example (DUMMY) files**: their values are fake and visible to
+> everyone. The real `config.json` and `.env` files are never committed (`.gitignore`). With the example values the server,
+> the setup script and the gate app deliberately refuse to run.
 
-**3. Üye uygulaması** (Flutter kurulu olmalı)
+**3. Member app** (Flutter must be installed)
 
 ```powershell
 cd member_app
 flutter pub get
-flutter run            # bağlı Android telefonda çalıştırır
+flutter run            # runs on a connected Android phone
 ```
 
-(İskelet ilk kez kuruluyorsa önce `powershell -ExecutionPolicy Bypass -File .\init.ps1`.)
-Telefon ve sunucu aynı Wi-Fi'de olmalı. Giriş ekranındaki "Sunucu ayarları"na `http://<bilgisayarın-IP'si>:3000` yazın
-(Android emülatöründe `http://10.0.2.2:3000`). Üyenin girebilmesi için panelden salona üye eklenip paket tanımlanmış olmalı.
+(If the project skeleton is being created for the first time, run `powershell -ExecutionPolicy Bypass -File .\init.ps1` first.)
+The phone and the server must be on the same Wi-Fi. On the login screen, enter `http://<your-computer-IP>:3000` under
+"Sunucu ayarları" ("Server settings") (`http://10.0.2.2:3000` on the Android emulator). For a member to get in, they must have been
+added to the gym from the panel and have a plan assigned.
 
-## Raspberry Pi'ye kurulum
+## Setting up the Raspberry Pi
 
 ```bash
 sudo apt install python3-tk python3-pil.imagetk python3-gpiozero
 pip install websockets qrcode
 ```
 
-`config.json` içinde:
+In `config.json`:
 
 ```json
 "fullscreen": true,
 "relay": { "mode": "gpio", "pin": 17, "active_high": false, "open_seconds": 3 }
 ```
 
-- Röle modülünü Pi'nin 3.3 V / GPIO pinine bağlayın, kilit/turnike kendi güç kaynağıyla çalışmalı.
-  Çoğu röle kartı "active low" çalışır (`active_high: false`). Kartınız tersiyse `true` yapın.
-- Açılışta otomatik başlatmak için `systemd` servisi veya masaüstü autostart kullanın.
-- Pi'ye mümkünse kablolu ağ bağlayın: internet kopunca kimse içeri giremez.
+- Connect the relay module to the Pi's 3.3 V / GPIO pin. The lock/turnstile must run from its own power supply.
+  Most relay boards are "active low" (`active_high: false`). If yours is the opposite, set it to `true`.
+- To start automatically at boot, use a `systemd` service or desktop autostart.
+- Use a wired network connection for the Pi if you can: when the internet drops, nobody can get in (unless free passage is enabled, see below).
 
-### İnternet kesilince kapı ne yapar
+### What the gate does when the internet is down
 
-Salon sahibi bunu panelde kapı başına seçer (**Kapılar → Ayarlar**): sunucu ayarı kapıya iletir, kapı `state.json` içinde saklar
-ve internet yokken, hatta açılışta bile uygular.
+The gym owner chooses this per gate in the panel (**Gates → Settings**, **Kapılar → Ayarlar**): the server sends the setting to the
+gate, the gate stores it in `state.json` and applies it while offline, even right after boot.
 
-| Ayar | Davranış |
+| Setting | Behaviour |
 |---|---|
-| **Kapı açık kalsın** (varsayılan) | Sunucuya `N` saniyeden uzun süre ulaşılamazsa röle **sürekli çekili** kalır, herkes geçebilir. Bağlantı gelince röle bırakılır. Kısa kopmalarda açılmasın diye `N` bekleme süresi vardır (varsayılan 30 sn). |
-| **Kapı kapalı kalsın** | Röle yalnızca sunucu onayıyla açılır; internet yoksa kimse giremez. |
+| **Keep the gate open** (default) | If the server cannot be reached for more than `N` seconds, the relay stays **continuously energized** and anyone can pass. The relay is released when the connection returns. `N` is a grace period so that short drops do not open the door (default 30 s). |
+| **Keep the gate closed** | The relay opens only with the server's approval; with no internet nobody gets in. |
 
-- **Reddedilen cihaz asla serbest kalmaz.** Anahtar yenilendi/iptal edildi ya da kapı silindiyse sunucu bağlantıyı bilerek keser
-  (`4003`/`4004`); bu durumda internet kesilse bile kapı kilitli kalır. Çalınan bir cihaz bu yolla kullanılamaz.
-- **Serbest geçişte kim girdi bilinemez.** Kapı, serbest kalan her dönemi (başlangıç, bitiş) saklar ve internet gelince sunucuya
-  bildirir; panelde **Kapılar** sayfasının altında listelenir. Rapor onaylanana dek dosyada tutulur, elektrik kesilse de kaybolmaz.
-  Pi'de pil olmadığı için saat sapabilir; makul görünmeyen zamanlar "Saat doğrulanamadı" işaretiyle gösterilir.
-- **Donanım uyarısı:** "açık kalsın" röleyi uzun süre çekili tutar. Elektrikli kilit/turnikenizin sürekli çalışmaya uygun olduğundan emin
-  olun. Elektrik kesintisinde de kapının açılmasını istiyorsanız bunu yazılım değil **kablolama** çözer: kilidi rölenin NC
-  (normalde kapalı) kontağına bağlayın. Yazılım yalnızca internet kesikken, Pi çalışırken devreye girer.
-- Pi yeniden başlarsa röle kapalı açılır; bekleme süresi dolmadan serbest geçiş başlamaz.
+- **A rejected device is never released.** If the key was rotated/revoked or the gate was deleted, the server deliberately closes the
+  connection (`4003`/`4004`); the gate then stays locked even if the internet drops. A stolen device cannot be used this way.
+- **Who walked in during free passage cannot be known.** The gate stores every free-passage period (start, end) and reports it to the
+  server when the internet returns; it is listed at the bottom of the **Gates** page in the panel. A report is kept on disk until it is
+  acknowledged, so it survives power loss. The Pi has no battery-backed clock, so its time can drift; timestamps that look implausible
+  are shown with a "Saat doğrulanamadı" ("Clock not verified") badge.
+- **Hardware warning:** "keep open" holds the relay energized for a long time. Make sure your electric lock/turnstile is rated for
+  continuous operation. If you also want the door to open during a **power** failure, that is solved by **wiring**, not software:
+  connect the lock to the relay's NC (normally closed) contact. The software only acts while the internet is down and the Pi is running.
+- If the Pi restarts, the relay starts off; free passage does not begin before the grace period has elapsed.
 
-## Güvenlik notları
+## Security notes
 
-- QR kodları sunucuda üretilir ve saklanır. Her biri 30 sn geçerli ve **tek kullanımlıktır**;
-  ekrandaki kod 20 sn'de bir yenilenir.
-- Aynı üye aynı salonda 2 dk içinde tekrar geçemez (`ANTI_PASSBACK_MS`).
-- Salon çalışanları yalnızca kendi salonlarının verisine erişir (başka salonun kimliği denenince 404 döner).
-- Bir salon, var olan bir e-postayı üye/çalışan olarak eklediğinde yalnızca ilişkiyi kurar; kişinin adı ve şifresi değişmez.
-- Kapı cihazı `gate_id` + `gate_key` ile kimlik doğrular. Sunucu anahtarın yalnızca özetini saklar.
-  Anahtar panelden yenilenebilir ve kapı silinebilir; her ikisinde bağlı cihaz anında düşer.
-- **Hız sınırı ve hesap kilidi:** Giriş (dakikada 10), salon kaydı (saatte 5), şifre değiştirme, kapı bağlantısı ve panel API'si
-  IP başına sınırlıdır. QR okutma oturum başına sayılır. Art arda 5 hatalı girişte hesap 15 dakika kilitlenir.
-  Sınırlar `server/src/config.js` içindedir; ters vekil arkasında `TRUST_PROXY=true` verin, yoksa herkes tek IP görünür.
-- **Oturumlar:** Anahtar 14 gün geçerlidir (`JWT_TTL`). Şifre değişince veya "Tüm cihazlardan çıkış" denince hesabın tüm
-  eski anahtarları geçersiz olur.
-- **Güvenlik başlıkları:** Sıkı CSP (yalnızca kendi dosyaları), `X-Content-Type-Options`, `frame-ancestors 'none'`, API yanıtlarında
-  `no-store`. HTTPS ile yayındayken `HSTS=true` verin.
-- **Roller:** `owner` her şeyi yapar. `staff` üye ekleme, paket tanımlama, giriş kayıtları ve elle kapı açma gibi günlük işleri
-  yapar; paket fiyatı, kapı, çalışan ve denetim kaydına erişemez. Salonun en az bir sahibi her zaman kalır.
-- **Denetim kaydı:** Üye/paket/kapı/çalışan değişiklikleri ve elle kapı açma, kimin yaptığıyla birlikte kaydedilir (yalnızca sahip görür).
+- QR codes are generated and stored on the server. Each is valid for 30 s and **single-use**;
+  the code on screen is refreshed every 20 s.
+- The same member cannot pass again at the same gym within 2 minutes (`ANTI_PASSBACK_MS`).
+- Gym staff can only access their own gym's data (using another gym's id returns 404).
+- When a gym adds an existing e-mail as a member/staff, it only creates the relationship; the person's name and password do not change.
+- The gate device authenticates with `gate_id` + `gate_key`. The server stores only a hash of the key.
+  The key can be rotated from the panel and the gate can be deleted; in both cases the connected device is dropped immediately.
+- **Rate limiting and account lockout:** login (10 per minute), gym registration (5 per hour), password change, gate connections and the
+  panel API are limited per IP. QR scans are counted per session. After 5 failed logins in a row the account is locked for 15 minutes.
+  The limits are in `server/src/config.js`; behind a reverse proxy set `TRUST_PROXY=true`, otherwise everyone appears to share one IP.
+- **Sessions:** a token is valid for 14 days (`JWT_TTL`). Changing the password or choosing "Log out of all devices" invalidates all
+  of the account's older tokens.
+- **Security headers:** strict CSP (own files only), `X-Content-Type-Options`, `frame-ancestors 'none'`, `no-store` on API responses.
+  Set `HSTS=true` when serving over HTTPS.
+- **Roles:** `owner` can do everything. `staff` does day-to-day work such as adding members, assigning plans, viewing entries and
+  opening the gate manually; staff cannot access plan prices, gates, staff management or the audit log. A gym always keeps at least one owner.
+- **Audit log:** member/plan/gate/staff changes and manual gate openings are recorded with who did them (visible to owners only).
 
-### Bilinen ödünleşimler
+### Known trade-offs
 
-- Hesap kilidi, bir saldırganın bilinen bir e-postayı 15 dakikalığına kilitlemesine izin verir ve kilit mesajı o e-postanın
-  kayıtlı olduğunu belli eder. Hız sınırı bunu sınırlar; e-posta doğrulaması ve CAPTCHA ile daha da azaltılabilir.
-- Üye veya çalışan eklerken "oluşturuldu / bağlandı" farkı, e-postanın sistemde olup olmadığını sızdırır.
-- Panel oturum anahtarını tarayıcı deposunda tutar. Sıkı CSP buna karşı koruma sağlar; ileride `HttpOnly` çerezine geçilebilir.
-- Kapı silinince giriş geçmişinde kapı adı yerine kimliği görünür.
+- Account lockout lets an attacker lock a known e-mail out for 15 minutes, and the lockout message reveals that the e-mail is registered.
+  Rate limiting bounds this; e-mail verification and CAPTCHA could reduce it further.
+- The "created / linked" difference when adding a member or staff leaks whether an e-mail exists in the system.
+- The panel keeps its session token in browser storage. The strict CSP protects against that; switching to an `HttpOnly` cookie is possible later.
+- When a gate is deleted, past entry records show its id instead of its name.
 
-### Canlıya çıkmadan önce yapılacaklar
+### Before going live
 
-- Sunucuyu HTTPS/WSS arkasında çalıştırın (ör. Caddy). Android'deki düz HTTP izni yalnızca geliştirme içindir, `member_app` içinde kaldırın.
-- Salon kaydı (`signup-gym`) herkese açık: e-posta doğrulaması ve kötüye kullanıma karşı önlem ekleyin.
-- Şifre sıfırlama (e-posta gönderen bir hizmet gerekir).
-- SQLite yerine PostgreSQL ve düzenli yedekleme.
-- Üye telefonunun konumunu doğrulama (kapıdaki QR'ın fotoğrafıyla uzaktan girişi zorlaştırır).
-- KVKK: aydınlatma metni, hesap silme ve veri dışa aktarma.
+- Run the server behind HTTPS/WSS (for example Caddy). The plain-HTTP allowance on Android is for development only; remove it in `member_app`.
+- Gym registration (`signup-gym`) is public: add e-mail verification and abuse protection.
+- Password reset (needs an e-mail sending service).
+- PostgreSQL instead of SQLite, and regular backups.
+- Verify the member's phone location (makes it harder to enter remotely with a photo of the QR at the door).
+- Data protection (KVKK/GDPR): privacy notice, account deletion and data export.
 
-## Sunucu API özeti
+## Server API summary
 
-| Uç nokta | Kim | Ne yapar |
+| Endpoint | Who | What it does |
 |---|---|---|
-| `POST /api/auth/login` | herkes | `{email, password}` → `{token, name, gyms}` |
-| `POST /api/auth/signup-gym` | herkes | Salon sahibi kaydı: hesap + salon + varsayılan paketler |
-| `POST /api/gyms` | giriş yapmış | Mevcut hesaba ek salon açar |
-| `POST /api/auth/change-password` | giriş yapmış | Şifre değiştirir, eski oturumları iptal eder, yeni anahtar döner |
-| `POST /api/auth/logout-all` | giriş yapmış | Tüm cihazlardaki oturumları kapatır |
-| `GET /api/me` | giriş yapmış | Üye olunan salonlar (üyelik durumlarıyla) ve yönetilen salonlar |
-| `POST /api/scan` | üye | `{code}` okutulan QR ile giriş; salon kapıdan bulunur |
-| `GET /api/gyms/:gymId` | salon çalışanı | Salon özeti ve sayılar |
-| `GET /api/gyms/:gymId/plans` | salon çalışanı | Paketleri listeler |
-| `GET/POST /api/gyms/:gymId/members`, `PATCH .../:userId` | salon çalışanı | Üyeler (ekle, devre dışı bırak). Listede son geliş tarihi de var |
-| `GET /api/gyms/:gymId/members/:userId` | salon çalışanı | Üye detayı: bilgiler, üyelik geçmişi, giriş istatistikleri. Geldiği günler için `GET .../entries?userId=` kullanılır |
-| `POST /api/gyms/:gymId/members/:userId/memberships` | salon çalışanı | Üyeye paket tanımla (süre uzar) |
-| `GET /api/gyms/:gymId/entries` | salon çalışanı | Giriş geçmişi. Sorgu: `from`, `to` (ISO zaman, `to` hariç), `result` (`all`/`allowed`/`denied`), `userId` (tek üye), `limit` (≤500), `offset` |
-| `GET /api/gyms/:gymId/entries/export` | **sahip** | Aynı aralık ve filtreyi Excel'de açılan CSV olarak indirir (UTF-8 + BOM, `;` ayırıcı, en fazla `MAX_EXPORT_ROWS`). Her indirme denetim kaydına yazılır |
-| `GET /api/gyms/:gymId/entries/summary` | salon çalışanı | Aralığın özeti: geçen/reddedilen, farklı üye, gün gün döküm. `from` ve `to` zorunlu, `tzOffsetMinutes` günleri istemcinin saat dilimine göre gruplar |
-| `GET /api/gyms/:gymId/gates`, `POST .../:gateId/open` | salon çalışanı | Kapıları listeler, elle açar |
-| `POST /api/gyms/:gymId/gates`, `PATCH .../:gateId`, `POST .../:gateId/rotate-key`, `DELETE .../:gateId` | **sahip** | Kapı ekle, "internet kesilirse" ayarını değiştir (`offlinePolicy`: `open`/`closed`, `offlineGraceSeconds`), anahtarı yenile, sil |
-| `GET /api/gyms/:gymId/gates/events` | salon çalışanı | Kapıların bildirdiği çevrimdışı serbest geçiş dönemleri |
-| `POST/PATCH /api/gyms/:gymId/plans` | **sahip** | Paket oluştur / düzenle |
-| `GET/POST /api/gyms/:gymId/staff`, `PATCH/DELETE .../:userId` | **sahip** | Çalışanlar ve roller |
-| `GET /api/gyms/:gymId/audit` | **sahip** | Denetim kaydı |
-| `WS /ws/gate` | kapı cihazı | Kapı → sunucu: `hello`, `offline_report`. Sunucu → kapı: `hello_ok` (+ "internet kesilirse" ayarı), `config`, `qr`, `open`, `deny`, `offline_report_ack` |
+| `POST /api/auth/login` | anyone | `{email, password}` → `{token, name, gyms}` |
+| `POST /api/auth/signup-gym` | anyone | Gym-owner registration: account + gym + default plans |
+| `POST /api/gyms` | signed in | Opens an additional gym for the current account |
+| `POST /api/auth/change-password` | signed in | Changes the password, invalidates older sessions, returns a new token |
+| `POST /api/auth/logout-all` | signed in | Ends the sessions on all devices |
+| `GET /api/me` | signed in | Gyms the user is a member of (with membership status) and gyms they manage |
+| `POST /api/scan` | member | `{code}` entry with the scanned QR; the gym is determined from the gate |
+| `GET /api/gyms/:gymId` | gym staff | Gym summary and counts |
+| `GET /api/gyms/:gymId/plans` | gym staff | Lists the plans |
+| `GET/POST /api/gyms/:gymId/members`, `PATCH .../:userId` | gym staff | Members (add, disable). The list also includes the last visit date |
+| `GET /api/gyms/:gymId/members/:userId` | gym staff | Member detail: info, membership history, entry statistics. Use `GET .../entries?userId=` for the days they visited |
+| `POST /api/gyms/:gymId/members/:userId/memberships` | gym staff | Assigns a plan to a member (extends the period) |
+| `GET /api/gyms/:gymId/entries` | gym staff | Entry history. Query: `from`, `to` (ISO time, `to` exclusive), `result` (`all`/`allowed`/`denied`), `userId` (one member), `limit` (≤500), `offset` |
+| `GET /api/gyms/:gymId/entries/export` | **owner** | Downloads the same range and filter as a CSV that opens in Excel (UTF-8 + BOM, `;` separator, at most `MAX_EXPORT_ROWS`). Every download is written to the audit log |
+| `GET /api/gyms/:gymId/entries/summary` | gym staff | Summary of a range: allowed/denied, distinct members, day-by-day breakdown. `from` and `to` are required; `tzOffsetMinutes` groups days by the client's time zone |
+| `GET /api/gyms/:gymId/gates`, `POST .../:gateId/open` | gym staff | Lists gates, opens one manually |
+| `POST /api/gyms/:gymId/gates`, `PATCH .../:gateId`, `POST .../:gateId/rotate-key`, `DELETE .../:gateId` | **owner** | Add a gate, change its "if the internet drops" setting (`offlinePolicy`: `open`/`closed`, `offlineGraceSeconds`), rotate the key, delete |
+| `GET /api/gyms/:gymId/gates/events` | gym staff | Offline free-passage periods reported by the gates |
+| `POST/PATCH /api/gyms/:gymId/plans` | **owner** | Create / edit plans |
+| `GET/POST /api/gyms/:gymId/staff`, `PATCH/DELETE .../:userId` | **owner** | Staff and roles |
+| `GET /api/gyms/:gymId/audit` | **owner** | Audit log |
+| `WS /ws/gate` | gate device | Gate → server: `hello`, `offline_report`. Server → gate: `hello_ok` (+ the "if the internet drops" setting), `config`, `qr`, `open`, `deny`, `offline_report_ack` |
