@@ -30,6 +30,9 @@ def load_config(path):
     for key in ("server_url", "gate_id", "gate_key"):
         if not cfg.get(key):
             sys.exit(f"{path}: '{key}' ayarı eksik")
+    if str(cfg["gate_key"]).upper().startswith("DUMMY"):
+        # config.example.json'daki sahte anahtar herkese açık; gerçek bir kapıda kullanılmamalı
+        sys.exit(f"{path}: gate_key örnek (DUMMY) bir değer. Panelde Kapılar > Kapı ekle ekranındaki gerçek ayarı kullanın.")
     return cfg
 
 

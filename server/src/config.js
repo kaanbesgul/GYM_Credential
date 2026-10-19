@@ -6,6 +6,9 @@ try {
   // .env yoksa varsayılanlar / ortam değişkenleri kullanılır
 }
 
+/** `.env.example` içindeki sahte (DUMMY...) değerleri tanır; bunlarla gerçek bir sistem çalıştırılmamalı. */
+export const isDummy = (value) => typeof value === 'string' && /^DUMMY/i.test(value);
+
 export function loadConfig(overrides = {}) {
   const env = process.env;
   return {

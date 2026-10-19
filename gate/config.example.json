@@ -1,8 +1,11 @@
 {
+  "_uyari": "ORNEK DOSYA (DUMMY): degerlerin hicbiri gercek degil. Gercek ayar icin panelde Kapilar > Kapi ekle ekraninin verdigi JSON'u config.json olarak kaydedin. DUMMY ile baslayan anahtarla kapi uygulamasi calismayi reddeder.",
   "server_url": "ws://192.168.1.10:3000/ws/gate",
   "gate_id": "kapi-1",
-  "gate_key": "SUNUCUDA-OLUSTURULAN-KAPI-ANAHTARI",
+  "gate_key": "DUMMY-KAPI-ANAHTARI-GERCEK-DEGIL",
   "fullscreen": false,
+  "offline_policy": "closed",
+  "offline_grace_seconds": 30,
   "relay": {
     "mode": "sim",
     "pin": 17,

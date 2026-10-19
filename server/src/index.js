@@ -1,12 +1,17 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from './app.js';
-import { loadConfig } from './config.js';
+import { isDummy, loadConfig } from './config.js';
 import { openDb } from './db.js';
 
 const config = loadConfig();
 if (!process.env.JWT_SECRET) {
   console.error('JWT_SECRET tanımlı değil. Önce "npm run setup" çalıştırın.');
+  process.exit(1);
+}
+if (isDummy(process.env.JWT_SECRET)) {
+  // Herkesin okuyabildiği bir anahtarla imzalanan oturumlar sahte üretilebilir
+  console.error('JWT_SECRET örnek (DUMMY) bir değer. .env dosyasını silip "npm run setup" ile gerçek değerler üretin.');
   process.exit(1);
 }
 

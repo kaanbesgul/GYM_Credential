@@ -12,7 +12,7 @@ doğrular ve kapıya "aç" komutu gönderir. Salon sahipleri üyelerini, paketle
 
 | Klasör | Durum | Açıklama |
 |---|---|---|
-| `server/` | ✅ hazır, 59 test | Node.js API + WebSocket + SQLite, çoklu salon. Derlenmiş web panelini de sunar |
+| `server/` | ✅ hazır, 63 test | Node.js API + WebSocket + SQLite, çoklu salon. Derlenmiş web panelini de sunar |
 | `web/` | ✅ hazır | Salon sahibi paneli (React + Vite + TypeScript) |
 | `gate/` | ✅ hazır | Kapı uygulaması (Python, ekranlı/ekransız, röle simülasyonu + GPIO) |
 | `member_app/` | ✅ derleniyor, testli | Üye uygulaması (Flutter, Android/iOS). Gerçek telefonda henüz denenmedi |
@@ -39,7 +39,7 @@ npm run build          # web/dist üretir; sunucu bunu otomatik sunar
 
 cd ../server
 npm install
-npm run setup          # .env (rastgele sırlar), veritabanı, örnek salon sahibi, salon ve ilk kapı
+npm run setup          # .env (rastgele sırlar; örnek: .env.example), veritabanı, örnek salon sahibi, salon ve ilk kapı
 npm start              # http://localhost:3000 → panel
 npm test               # entegrasyon testleri
 ```
@@ -58,9 +58,14 @@ python gate.py                       # ekranlı
 python gate.py --headless            # ekransız (QR kodları konsola yazılır)
 ```
 
-`config.json` yoksa `config.example.json`'u kopyalayın. Gerçek bir salonun kapısı için panelde **Kapılar → Kapı ekle** der,
-çıkan ayarı (kapı kimliği + anahtar) `gate/config.json` içine yapıştırırsınız. Anahtar yalnızca o anda gösterilir.
+Gerçek bir salonun kapısı için panelde **Kapılar → Kapı ekle** der, çıkan ayarı (kapı kimliği + anahtar)
+`gate/config.json` içine yapıştırırsınız. Anahtar yalnızca o anda gösterilir. Yerel denemede `npm run setup`'ın
+ürettiği kapı anahtarı `server/.env` içindedir.
 Varsayılan röle modu `sim`: kapı açılınca yalnızca log yazar.
+
+> `gate/config.example.json` ve `server/.env.example` **örnek (DUMMY) dosyalardır**: içlerindeki değerler sahtedir ve
+> herkes görebilir. Gerçek `config.json` ve `.env` dosyaları git'e eklenmez (`.gitignore`). Örnek değerlerle sunucu,
+> kurulum betiği ve kapı uygulaması bilerek çalışmayı reddeder.
 
 **3. Üye uygulaması** (Flutter kurulu olmalı)
 
