@@ -1,3 +1,5 @@
+🇹🇷 Türkçe · 🇬🇧 [English](README.en.md)
+
 # GYM Enter
 
 QR ile spor salonu girişi, birden çok salonun kullanabileceği bir hizmet (SaaS) olarak tasarlandı.
